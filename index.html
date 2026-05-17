@@ -460,7 +460,7 @@ function renderChapters() {
           <textarea id="q-${q.id}" data-q="${q.id}" placeholder="(their words — type as they speak)" ${skipped ? 'disabled' : ''}>${val}</textarea>
           <div class="audio-row" id="audio-${q.id}">
             <button class="rec-btn" data-rec="${q.id}" title="Record their voice">●</button>
-            <div class="audio-meta" id="audio-meta-${q.id}">tap ● to record · in-session only · download if you want to keep it</div>
+            <div class="audio-meta" id="audio-meta-${q.id}" data-audio-restore="${persistedAudioQids.has(q.id) ? '1' : '0'}">${persistedAudioQids.has(q.id) ? 'saved audio — loading…' : 'tap ● to record · auto-saved'}</div>
           </div>
           <div class="photo-row" id="photo-row-${q.id}">
             ${(state.photos[q.id] || []).map((p) => `
@@ -546,6 +546,31 @@ function renderChapters() {
   });
   chaptersEl.querySelectorAll('[data-rec]').forEach((btn) => {
     btn.addEventListener('click', () => toggleRecording(btn.dataset.rec, btn));
+  });
+  // Restore persisted audio previews
+  chaptersEl.querySelectorAll('[data-audio-restore="1"]').forEach(async (meta) => {
+    const qid = meta.id.replace('audio-meta-', '');
+    const r = await restoreAudioPreviewForQid(qid);
+    if (!r) return;
+    meta.innerHTML = `
+      <audio controls src="${r.url}" style="vertical-align: middle;"></audio>
+      <button class="audio-dl" data-dl="${qid}" style="margin-left: 8px;">Download .webm</button>
+      <button class="audio-dl" data-audio-del="${qid}" style="margin-left: 4px;color:#e54a28;border-color:#e54a28;">Delete</button>
+      <span style="font-size:10px;color:var(--accent);margin-left:6px;">✓ saved (${r.durationSec}s)</span>
+    `;
+    // Reconstruct audioState so download works
+    const rec = await getAudioBlob(qid);
+    if (rec) {
+      audioState[qid] = { blob: rec.blob, durationSec: rec.durationSec, url: r.url };
+    }
+    meta.querySelector('[data-dl]')?.addEventListener('click', () => downloadAudio(qid));
+    meta.querySelector('[data-audio-del]')?.addEventListener('click', async () => {
+      if (!confirm('Delete this recording?')) return;
+      await deleteAudioBlob(qid);
+      persistedAudioQids.delete(qid);
+      delete audioState[qid];
+      renderChapters();
+    });
   });
   chaptersEl.querySelectorAll('[data-photo-add]').forEach((inp) => {
     inp.addEventListener('change', async (e) => {
@@ -647,9 +672,78 @@ async function resizeImage(file, maxDim) {
   });
 }
 
-// Audio recording: per-question, in-session only (not persisted to localStorage —
-// audio blobs are too large). Downloadable as webm. Replaces existing recording.
+// IndexedDB for audio blobs. localStorage is too small (~5MB). IndexedDB
+// scales to GB. One DB "echo-audio" with object store "blobs" keyed by qid.
+const DB_NAME = 'echo-audio';
+const DB_STORE = 'blobs';
+let __dbPromise = null;
+function openAudioDb() {
+  if (__dbPromise) return __dbPromise;
+  __dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(DB_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return __dbPromise;
+}
+async function putAudioBlob(qid, blob, durationSec) {
+  const db = await openAudioDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).put({ blob, durationSec, savedAt: Date.now() }, qid);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function getAudioBlob(qid) {
+  const db = await openAudioDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readonly');
+    const req = tx.objectStore(DB_STORE).get(qid);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function deleteAudioBlob(qid) {
+  const db = await openAudioDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).delete(qid);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function listAudioQids() {
+  const db = await openAudioDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readonly');
+    const req = tx.objectStore(DB_STORE).getAllKeys();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// Audio recording: PERSISTED via IndexedDB. Per question.
 const audioState = {}; // qid -> { recorder, chunks, startTs, blob, url, durationSec, timerId }
+const persistedAudioQids = new Set();
+
+// On page load, find which questions have saved audio + restore UI on render
+(async function loadPersistedAudio() {
+  try {
+    const keys = await listAudioQids();
+    keys.forEach((k) => persistedAudioQids.add(k));
+    // Re-render chapters once persisted audio is known
+    if (typeof renderChapters === 'function') renderChapters();
+  } catch {}
+})();
+
+async function restoreAudioPreviewForQid(qid) {
+  const rec = await getAudioBlob(qid);
+  if (!rec) return null;
+  const url = URL.createObjectURL(rec.blob);
+  return { url, durationSec: rec.durationSec };
+}
 
 async function toggleRecording(qid, btn) {
   const s = audioState[qid] || (audioState[qid] = {});
@@ -665,12 +759,19 @@ async function toggleRecording(qid, btn) {
     s.recorder = rec;
     s.startTs = Date.now();
     rec.ondataavailable = (e) => { if (e.data.size > 0) s.chunks.push(e.data); };
-    rec.onstop = () => {
+    rec.onstop = async () => {
       s.durationSec = Math.round((Date.now() - s.startTs) / 1000);
       const blob = new Blob(s.chunks, { type: rec.mimeType || 'audio/webm' });
       s.blob = blob;
       if (s.url) URL.revokeObjectURL(s.url);
       s.url = URL.createObjectURL(blob);
+      // Persist to IndexedDB so it survives page reload
+      try {
+        await putAudioBlob(qid, blob, s.durationSec);
+        persistedAudioQids.add(qid);
+      } catch (err) {
+        console.warn('audio persist failed', err);
+      }
       stream.getTracks().forEach((t) => t.stop());
       clearInterval(s.timerId);
       btn.classList.remove('recording');
@@ -680,8 +781,17 @@ async function toggleRecording(qid, btn) {
         meta.innerHTML = `
           <audio controls src="${s.url}" style="vertical-align: middle;"></audio>
           <button class="audio-dl" data-dl="${qid}" style="margin-left: 8px;">Download .webm</button>
+          <button class="audio-dl" data-audio-del="${qid}" style="margin-left: 4px;color:#e54a28;border-color:#e54a28;">Delete</button>
+          <span style="font-size:10px;color:var(--accent);margin-left:6px;">✓ saved</span>
         `;
         meta.querySelector('[data-dl]')?.addEventListener('click', () => downloadAudio(qid));
+        meta.querySelector('[data-audio-del]')?.addEventListener('click', async () => {
+          if (!confirm('Delete this recording?')) return;
+          await deleteAudioBlob(qid);
+          persistedAudioQids.delete(qid);
+          delete audioState[qid];
+          renderChapters();
+        });
       }
     };
     rec.start();
