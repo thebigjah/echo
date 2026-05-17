@@ -158,6 +158,12 @@
   .audio-row audio { height: 28px; max-width: 240px; flex: 1; }
   .audio-dl { background: transparent; border: 1px solid var(--border-light); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer; }
   .audio-dl:hover { color: var(--accent); border-color: var(--accent); }
+  .photo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  .photo-thumb { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-light); cursor: pointer; }
+  .photo-input-label { background: transparent; border: 1px dashed var(--border-light); color: var(--text-muted); border-radius: 6px; padding: 6px 14px; font-size: 12px; cursor: pointer; transition: all 120ms; }
+  .photo-input-label:hover { border-color: var(--accent); color: var(--accent); }
+  .photo-input-label input { display: none; }
+  .photo-remove { background: rgba(229,74,40,0.15); border: 1px solid var(--intrusion); color: #ffb8a4; border-radius: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -355,6 +361,7 @@ state.meta = state.meta || {};
 state.skipped = state.skipped || {}; // qid -> true
 state.starred = state.starred || {}; // qid -> true
 state.custom  = state.custom  || {}; // chapId -> [{ id, q, hint }]
+state.photos  = state.photos  || {}; // qid -> [{ id, dataUrl, caption }]
 
 function showSaveToast() {
   const t = document.getElementById('save-toast');
@@ -420,6 +427,17 @@ function renderChapters() {
             <button class="rec-btn" data-rec="${q.id}" title="Record their voice">●</button>
             <div class="audio-meta" id="audio-meta-${q.id}">tap ● to record · in-session only · download if you want to keep it</div>
           </div>
+          <div class="photo-row" id="photo-row-${q.id}">
+            ${(state.photos[q.id] || []).map((p) => `
+              <div style="position:relative;">
+                <img src="${p.dataUrl}" class="photo-thumb" alt="" data-photo-view="${q.id}|${p.id}" />
+                <button class="photo-remove" data-photo-del="${q.id}|${p.id}" style="position:absolute;top:-6px;right:-6px;">×</button>
+              </div>
+            `).join('')}
+            <label class="photo-input-label">+ Photo
+              <input type="file" accept="image/*" data-photo-add="${q.id}" />
+            </label>
+          </div>
         </div>
       `;
     });
@@ -472,6 +490,45 @@ function renderChapters() {
   chaptersEl.querySelectorAll('[data-rec]').forEach((btn) => {
     btn.addEventListener('click', () => toggleRecording(btn.dataset.rec, btn));
   });
+  chaptersEl.querySelectorAll('[data-photo-add]').forEach((inp) => {
+    inp.addEventListener('change', async (e) => {
+      const qid = e.target.dataset.photoAdd;
+      const file = e.target.files?.[0];
+      if (!file) return;
+      // Resize via canvas before storing so we don't blow localStorage
+      try {
+        const dataUrl = await resizeImage(file, 1200);
+        state.photos[qid] = state.photos[qid] || [];
+        state.photos[qid].push({ id: 'p_' + Date.now().toString(36), dataUrl, caption: '' });
+        saveState(state);
+        renderChapters();
+        showSaveToast();
+      } catch (err) {
+        alert('Could not load that image: ' + err);
+      }
+      e.target.value = '';
+    });
+  });
+  chaptersEl.querySelectorAll('[data-photo-del]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const [qid, pid] = btn.dataset.photoDel.split('|');
+      state.photos[qid] = (state.photos[qid] || []).filter(p => p.id !== pid);
+      saveState(state);
+      renderChapters();
+    });
+  });
+  chaptersEl.querySelectorAll('[data-photo-view]').forEach((img) => {
+    img.addEventListener('click', () => {
+      const [qid, pid] = img.dataset.photoView.split('|');
+      const photo = (state.photos[qid] || []).find(p => p.id === pid);
+      if (!photo) return;
+      const w = window.open('', '_blank');
+      if (w) {
+        w.document.write(`<title>Photo</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="${photo.dataUrl}" style="max-width:100%;max-height:100vh;" /></body>`);
+      }
+    });
+  });
   chaptersEl.querySelectorAll('[data-addq]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const chapId = btn.dataset.addq;
@@ -502,6 +559,29 @@ let __toastDeb;
 function debouncedToast() {
   clearTimeout(__toastDeb);
   __toastDeb = setTimeout(() => showSaveToast(), 600);
+}
+
+async function resizeImage(file, maxDim) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = () => reject(new Error('image decode failed'));
+      img.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error('file read failed'));
+    reader.readAsDataURL(file);
+  });
 }
 
 // Audio recording: per-question, in-session only (not persisted to localStorage —
@@ -615,11 +695,14 @@ function generate() {
     const chapterContent = [...chap.qs, ...customs].map(q => {
       if (state.skipped[q.id]) return null;
       const a = (state.answers[q.id] || '').trim();
-      if (!a) return null;
+      const photos = state.photos[q.id] || [];
+      if (!a && photos.length === 0) return null;
       const starred = state.starred[q.id] ? ' <span style="color:#b9aa7a;">★</span>' : '';
+      const photoHtml = photos.map(p => `<img src="${p.dataUrl}" style="max-width:100%;border-radius:6px;margin:12px 0;" alt="" />`).join('');
       return `
         <h3>${escapeHtml(q.q)}${starred}</h3>
         ${paragraphify(a)}
+        ${photoHtml}
       `;
     }).filter(Boolean).join('');
     if (chapterContent.trim()) {
