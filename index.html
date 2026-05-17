@@ -98,6 +98,45 @@
   }
   .footer-note { font-size: 13px; color: var(--text-light); text-align: center; margin-top: 40px; }
   .footer-note a { color: var(--accent); text-decoration: none; }
+
+  .q-row { position: relative; }
+  .q-tools {
+    position: absolute; top: 16px; right: 0;
+    display: flex; gap: 6px;
+  }
+  .q-tool {
+    background: transparent; border: 1px solid var(--border-light);
+    color: var(--text-light); border-radius: 6px;
+    width: 28px; height: 28px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; cursor: pointer; padding: 0;
+    transition: all 120ms;
+  }
+  .q-tool:hover { color: var(--accent); border-color: var(--accent); }
+  .q-tool.on { color: var(--accent-bright); border-color: var(--accent-bright); background: rgba(232,185,104,0.08); }
+  .q-skipped textarea { opacity: 0.35; }
+  .q-skipped label.q-label { opacity: 0.5; }
+  .save-toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--card); border: 1px solid var(--accent);
+    color: var(--accent-bright);
+    padding: 10px 18px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 200ms, transform 200ms;
+    pointer-events: none; z-index: 200;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .save-toast.show { opacity: 1; transform: translateY(0); }
+  .add-question {
+    display: block; width: 100%;
+    margin-top: 18px; padding: 12px;
+    background: transparent; border: 1px dashed var(--border-light);
+    color: var(--text-muted); border-radius: 8px;
+    font-family: inherit; font-size: 13px; cursor: pointer;
+  }
+  .add-question:hover { border-color: var(--accent); color: var(--accent); }
+  .custom-tag { display: inline-block; font-size: 9px; color: var(--accent); margin-left: 6px; padding: 1px 6px; border: 1px solid var(--accent); border-radius: 4px; vertical-align: middle; }
 </style>
 </head>
 <body>
@@ -145,7 +184,7 @@
 
   <div class="actions">
     <button class="btn btn-primary" id="btn-generate">Generate the life story →</button>
-    <button class="btn btn-ghost" id="btn-save">Save progress</button>
+    <button class="btn btn-ghost" id="btn-export-md">Export as Markdown</button>
     <button class="btn btn-ghost" id="btn-clear">Start over</button>
   </div>
 
@@ -158,9 +197,11 @@
   </div>
 
   <p class="footer-note">
-    Echo v0.1 · saves locally to your browser · a Purcell Ventures tool · for the lives that don't get written down on their own
+    Echo v0.2 · auto-saves to your browser as you type · a Purcell Ventures tool · for the lives that don't get written down on their own
   </p>
 </main>
+
+<div class="save-toast" id="save-toast">✓ Saved</div>
 
 <script>
 const CHAPTERS = [
@@ -272,14 +313,31 @@ function saveState(s) {
 const state = loadState();
 state.answers = state.answers || {};
 state.meta = state.meta || {};
+state.skipped = state.skipped || {}; // qid -> true
+state.starred = state.starred || {}; // qid -> true
+state.custom  = state.custom  || {}; // chapId -> [{ id, q, hint }]
+
+function showSaveToast() {
+  const t = document.getElementById('save-toast');
+  t.classList.add('show');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => t.classList.remove('show'), 1200);
+}
+
+function getAllQuestions() {
+  const out = [];
+  CHAPTERS.forEach((chap) => {
+    const customs = state.custom[chap.id] || [];
+    [...chap.qs, ...customs].forEach((q) => out.push({ chap, q, isCustom: customs.includes(q) }));
+  });
+  return out;
+}
 
 const chaptersEl = document.getElementById('chapters');
 
 function renderChapters() {
   chaptersEl.innerHTML = '';
-  let totalQs = 0, answeredQs = 0;
   CHAPTERS.forEach((chap, ci) => {
-    totalQs += chap.qs.length;
     const card = document.createElement('div');
     card.className = 'card';
     const head = `
@@ -290,26 +348,84 @@ function renderChapters() {
       </div>
     `;
     let body = '';
-    chap.qs.forEach((q) => {
+    const customs = state.custom[chap.id] || [];
+    [...chap.qs, ...customs].forEach((q, idx) => {
       const val = (state.answers[q.id] || '').replace(/"/g, '&quot;');
-      if (val.trim()) answeredQs++;
+      const isCustom = customs.includes(q);
+      const skipped = !!state.skipped[q.id];
+      const starred = !!state.starred[q.id];
       body += `
-        <label class="q-label" for="q-${q.id}">${q.q}
-          <span class="q-hint">${q.hint}</span>
-        </label>
-        <textarea id="q-${q.id}" data-q="${q.id}" placeholder="(their words — type as they speak)">${val}</textarea>
+        <div class="q-row ${skipped ? 'q-skipped' : ''}">
+          <label class="q-label" for="q-${q.id}">${escapeHtml(q.q)}${isCustom ? ' <span class="custom-tag">CUSTOM</span>' : ''}
+            <span class="q-hint">${escapeHtml(q.hint)}</span>
+          </label>
+          <div class="q-tools">
+            <button class="q-tool ${starred ? 'on' : ''}" title="Star this question" data-star="${q.id}">★</button>
+            <button class="q-tool ${skipped ? 'on' : ''}" title="${skipped ? 'Un-skip' : 'Skip this question'}" data-skip="${q.id}">${skipped ? '↺' : '⊘'}</button>
+            ${isCustom ? `<button class="q-tool" title="Delete custom question" data-delq="${chap.id}|${q.id}">×</button>` : ''}
+          </div>
+          <textarea id="q-${q.id}" data-q="${q.id}" placeholder="(their words — type as they speak)" ${skipped ? 'disabled' : ''}>${val}</textarea>
+        </div>
       `;
     });
+    body += `<button class="add-question" data-addq="${chap.id}">+ Add a custom question to this chapter</button>`;
     card.innerHTML = head + body;
     chaptersEl.appendChild(card);
   });
 
-  // wire textareas
+  // wire textareas (autosave + toast on first save per session per question)
   chaptersEl.querySelectorAll('textarea[data-q]').forEach((ta) => {
     ta.addEventListener('input', (e) => {
       state.answers[e.target.dataset.q] = e.target.value;
       saveState(state);
       updateProgress();
+      debouncedToast();
+    });
+  });
+
+  // wire skip/star
+  chaptersEl.querySelectorAll('[data-skip]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const qid = btn.dataset.skip;
+      state.skipped[qid] = !state.skipped[qid];
+      saveState(state);
+      renderChapters();
+      showSaveToast();
+    });
+  });
+  chaptersEl.querySelectorAll('[data-star]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const qid = btn.dataset.star;
+      state.starred[qid] = !state.starred[qid];
+      saveState(state);
+      renderChapters();
+      showSaveToast();
+    });
+  });
+  chaptersEl.querySelectorAll('[data-delq]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const [chapId, qid] = btn.dataset.delq.split('|');
+      if (!confirm('Delete this custom question? Its answer will also be removed.')) return;
+      state.custom[chapId] = (state.custom[chapId] || []).filter(q => q.id !== qid);
+      delete state.answers[qid];
+      delete state.skipped[qid];
+      delete state.starred[qid];
+      saveState(state);
+      renderChapters();
+    });
+  });
+  chaptersEl.querySelectorAll('[data-addq]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const chapId = btn.dataset.addq;
+      const q = prompt('Question to ask:');
+      if (!q || !q.trim()) return;
+      const hint = prompt('Hint or follow-up (optional):') || '';
+      const newQ = { id: `c_${chapId}_${Date.now().toString(36)}`, q: q.trim(), hint: hint.trim() };
+      state.custom[chapId] = state.custom[chapId] || [];
+      state.custom[chapId].push(newQ);
+      saveState(state);
+      renderChapters();
+      showSaveToast();
     });
   });
 
@@ -318,21 +434,32 @@ function renderChapters() {
     const el = document.getElementById('m-' + k);
     if (!el) return;
     el.value = state.meta[k] || '';
-    el.addEventListener('input', () => { state.meta[k] = el.value; saveState(state); });
+    el.addEventListener('input', () => { state.meta[k] = el.value; saveState(state); debouncedToast(); });
   });
 
   updateProgress();
 }
 
+let __toastDeb;
+function debouncedToast() {
+  clearTimeout(__toastDeb);
+  __toastDeb = setTimeout(() => showSaveToast(), 600);
+}
+
 function updateProgress() {
-  let total = 0, done = 0;
-  CHAPTERS.forEach(c => c.qs.forEach(q => {
-    total++;
-    if ((state.answers[q.id] || '').trim()) done++;
-  }));
+  let total = 0, done = 0, skipped = 0;
+  CHAPTERS.forEach(c => {
+    const customs = state.custom[c.id] || [];
+    [...c.qs, ...customs].forEach(q => {
+      if (state.skipped[q.id]) { skipped++; return; }
+      total++;
+      if ((state.answers[q.id] || '').trim()) done++;
+    });
+  });
   const pct = total ? Math.round((done/total)*100) : 0;
   document.getElementById('progress-bar').style.width = pct + '%';
-  document.getElementById('progress-text-val').textContent = `${done} of ${total} questions answered (${pct}%)`;
+  document.getElementById('progress-text-val').textContent =
+    `${done} of ${total} answered (${pct}%)` + (skipped ? ` · ${skipped} skipped` : '');
 }
 
 function paragraphify(text) {
@@ -361,11 +488,14 @@ function generate() {
     <p style="font-size:14px;color:#888;margin-bottom:30px;">A life captured in their own words.${rel}</p>
   `;
   CHAPTERS.forEach((chap) => {
-    const chapterContent = chap.qs.map(q => {
+    const customs = state.custom[chap.id] || [];
+    const chapterContent = [...chap.qs, ...customs].map(q => {
+      if (state.skipped[q.id]) return null;
       const a = (state.answers[q.id] || '').trim();
       if (!a) return null;
+      const starred = state.starred[q.id] ? ' <span style="color:#b9aa7a;">★</span>' : '';
       return `
-        <h3>${escapeHtml(q.q)}</h3>
+        <h3>${escapeHtml(q.q)}${starred}</h3>
         ${paragraphify(a)}
       `;
     }).filter(Boolean).join('');
@@ -379,14 +509,52 @@ function generate() {
   document.getElementById('output').scrollIntoView({ behavior: 'smooth' });
 }
 
+function generateMarkdown() {
+  const m = state.meta;
+  const name = m.name?.trim() || 'A Life';
+  let md = `# ${name}\n\n`;
+  if (m.nick?.trim()) md += `*Known as ${m.nick}*\n\n`;
+  const subline = [
+    m.born?.trim() && `Born ${m.born}`,
+    m.bornplace?.trim() && m.bornplace,
+    m.date?.trim() && `interview ${m.date}`,
+    m.rel?.trim() && `interviewed by ${m.rel}`,
+  ].filter(Boolean).join(' · ');
+  if (subline) md += `${subline}\n\n`;
+  md += `_A life captured in their own words._\n\n---\n\n`;
+  CHAPTERS.forEach((chap) => {
+    const customs = state.custom[chap.id] || [];
+    const chapterContent = [...chap.qs, ...customs].map(q => {
+      if (state.skipped[q.id]) return null;
+      const a = (state.answers[q.id] || '').trim();
+      if (!a) return null;
+      const star = state.starred[q.id] ? ' ⭐' : '';
+      return `### ${q.q}${star}\n\n${a}\n`;
+    }).filter(Boolean).join('\n');
+    if (chapterContent.trim()) {
+      md += `## ${chap.title}\n\n${chapterContent}\n`;
+    }
+  });
+  md += `\n---\n\n*Captured with Echo · ${new Date().toLocaleDateString()}*\n`;
+  return md;
+}
+
+function exportMarkdown() {
+  const md = generateMarkdown();
+  const name = (state.meta.name || 'life-story').replace(/[^a-z0-9-]+/gi, '-').toLowerCase();
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${name}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showSaveToast();
+}
+
 document.getElementById('btn-generate').addEventListener('click', generate);
-document.getElementById('btn-save').addEventListener('click', () => {
-  saveState(state);
-  const b = document.getElementById('btn-save');
-  const t = b.textContent;
-  b.textContent = '✓ Saved';
-  setTimeout(() => { b.textContent = t; }, 1500);
-});
+document.getElementById('btn-export-md').addEventListener('click', exportMarkdown);
 document.getElementById('btn-clear').addEventListener('click', () => {
   if (!confirm('Erase all answers and start over? This cannot be undone.')) return;
   localStorage.removeItem(KEY);
