@@ -137,6 +137,27 @@
   }
   .add-question:hover { border-color: var(--accent); color: var(--accent); }
   .custom-tag { display: inline-block; font-size: 9px; color: var(--accent); margin-left: 6px; padding: 1px 6px; border: 1px solid var(--accent); border-radius: 4px; vertical-align: middle; }
+  .audio-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 8px; padding: 8px 12px;
+    background: var(--bg-2); border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .rec-btn {
+    width: 36px; height: 36px; border-radius: 18px;
+    background: var(--accent); color: var(--bg);
+    border: none; cursor: pointer; display: inline-flex;
+    align-items: center; justify-content: center;
+    font-size: 16px; transition: background 120ms, transform 80ms;
+  }
+  .rec-btn:hover { background: var(--accent-bright); }
+  .rec-btn:active { transform: scale(0.96); }
+  .rec-btn.recording { background: var(--intrusion); animation: rec-pulse 1.2s infinite; }
+  @keyframes rec-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+  .audio-meta { font-size: 12px; color: var(--text-light); flex: 1; }
+  .audio-row audio { height: 28px; max-width: 240px; flex: 1; }
+  .audio-dl { background: transparent; border: 1px solid var(--border-light); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer; }
+  .audio-dl:hover { color: var(--accent); border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -365,6 +386,10 @@ function renderChapters() {
             ${isCustom ? `<button class="q-tool" title="Delete custom question" data-delq="${chap.id}|${q.id}">×</button>` : ''}
           </div>
           <textarea id="q-${q.id}" data-q="${q.id}" placeholder="(their words — type as they speak)" ${skipped ? 'disabled' : ''}>${val}</textarea>
+          <div class="audio-row" id="audio-${q.id}">
+            <button class="rec-btn" data-rec="${q.id}" title="Record their voice">●</button>
+            <div class="audio-meta" id="audio-meta-${q.id}">tap ● to record · in-session only · download if you want to keep it</div>
+          </div>
         </div>
       `;
     });
@@ -414,6 +439,9 @@ function renderChapters() {
       renderChapters();
     });
   });
+  chaptersEl.querySelectorAll('[data-rec]').forEach((btn) => {
+    btn.addEventListener('click', () => toggleRecording(btn.dataset.rec, btn));
+  });
   chaptersEl.querySelectorAll('[data-addq]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const chapId = btn.dataset.addq;
@@ -444,6 +472,71 @@ let __toastDeb;
 function debouncedToast() {
   clearTimeout(__toastDeb);
   __toastDeb = setTimeout(() => showSaveToast(), 600);
+}
+
+// Audio recording: per-question, in-session only (not persisted to localStorage —
+// audio blobs are too large). Downloadable as webm. Replaces existing recording.
+const audioState = {}; // qid -> { recorder, chunks, startTs, blob, url, durationSec, timerId }
+
+async function toggleRecording(qid, btn) {
+  const s = audioState[qid] || (audioState[qid] = {});
+  if (s.recorder && s.recorder.state === 'recording') {
+    s.recorder.stop();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    s.chunks = [];
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+    const rec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    s.recorder = rec;
+    s.startTs = Date.now();
+    rec.ondataavailable = (e) => { if (e.data.size > 0) s.chunks.push(e.data); };
+    rec.onstop = () => {
+      s.durationSec = Math.round((Date.now() - s.startTs) / 1000);
+      const blob = new Blob(s.chunks, { type: rec.mimeType || 'audio/webm' });
+      s.blob = blob;
+      if (s.url) URL.revokeObjectURL(s.url);
+      s.url = URL.createObjectURL(blob);
+      stream.getTracks().forEach((t) => t.stop());
+      clearInterval(s.timerId);
+      btn.classList.remove('recording');
+      btn.textContent = '●';
+      const meta = document.getElementById('audio-meta-' + qid);
+      if (meta) {
+        meta.innerHTML = `
+          <audio controls src="${s.url}" style="vertical-align: middle;"></audio>
+          <button class="audio-dl" data-dl="${qid}" style="margin-left: 8px;">Download .webm</button>
+        `;
+        meta.querySelector('[data-dl]')?.addEventListener('click', () => downloadAudio(qid));
+      }
+    };
+    rec.start();
+    btn.classList.add('recording');
+    btn.textContent = '■';
+    const meta = document.getElementById('audio-meta-' + qid);
+    s.timerId = setInterval(() => {
+      const secs = Math.floor((Date.now() - s.startTs) / 1000);
+      if (meta) meta.textContent = `recording… ${secs}s — tap ■ to stop`;
+    }, 250);
+  } catch (e) {
+    const meta = document.getElementById('audio-meta-' + qid);
+    if (meta) meta.textContent = 'mic permission denied — enable it in browser settings';
+  }
+}
+
+function downloadAudio(qid) {
+  const s = audioState[qid];
+  if (!s?.blob) return;
+  const name = (state.meta.name || 'echo').replace(/[^a-z0-9-]+/gi, '-').toLowerCase();
+  const filename = `${name}-${qid}-${s.durationSec || 0}s.webm`;
+  const url = URL.createObjectURL(s.blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function updateProgress() {
