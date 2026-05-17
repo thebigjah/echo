@@ -363,12 +363,38 @@ state.starred = state.starred || {}; // qid -> true
 state.custom  = state.custom  || {}; // chapId -> [{ id, q, hint }]
 state.photos  = state.photos  || {}; // qid -> [{ id, dataUrl, caption }]
 state.featured = state.featured || null; // qid of the one "featured quote" — pulled to top of generated doc
+state.chapterTime = state.chapterTime || {}; // chapId -> seconds spent (accumulated across sittings)
 
 function showSaveToast() {
   const t = document.getElementById('save-toast');
   t.classList.add('show');
   clearTimeout(window.__toastTimer);
   window.__toastTimer = setTimeout(() => t.classList.remove('show'), 1200);
+}
+
+// Time tracking per chapter — accumulates seconds while a textarea in that chapter is focused
+let __activeChapter = null;
+let __chapterFocusStart = null;
+function commitChapterTime() {
+  if (__activeChapter && __chapterFocusStart) {
+    const delta = Math.round((Date.now() - __chapterFocusStart) / 1000);
+    if (delta > 0 && delta < 3600) { // sanity bound — no single sitting over 1h per focus session
+      state.chapterTime[__activeChapter] = (state.chapterTime[__activeChapter] || 0) + delta;
+      saveState(state);
+    }
+  }
+  __activeChapter = null;
+  __chapterFocusStart = null;
+}
+window.addEventListener('blur', commitChapterTime);
+window.addEventListener('beforeunload', commitChapterTime);
+function fmtSec(s) {
+  if (!s) return '—';
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s/60); const r = s % 60;
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m/60);
+  return `${h}h ${m % 60}m`;
 }
 
 function getAllQuestions() {
@@ -392,6 +418,7 @@ function renderChapters() {
         <span class="chapter-num">CHAPTER ${String(ci+1).padStart(2,'0')}</span>
         <h3 class="chapter-title">${chap.title}</h3>
         <span class="chapter-sub">${chap.sub}</span>
+        ${state.chapterTime[chap.id] ? `<span class="chapter-sub" style="margin-left:auto;color:var(--accent);">${fmtSec(state.chapterTime[chap.id])} spent</span>` : ''}
       </div>
       ${chap.scripture ? `
       <blockquote style="border-left:3px solid var(--accent);padding:10px 0 10px 16px;margin:14px 0 18px;font-family:'Lora',Georgia,serif;font-style:italic;color:var(--text-muted);font-size:14px;line-height:1.6;">
@@ -456,6 +483,19 @@ function renderChapters() {
       updateProgress();
       debouncedToast();
     });
+    ta.addEventListener('focus', (e) => {
+      // Figure out which chapter this textarea belongs to
+      const qid = e.target.dataset.q;
+      let chapId = null;
+      CHAPTERS.forEach(c => {
+        const customs = state.custom[c.id] || [];
+        if ([...c.qs, ...customs].some(q => q.id === qid)) chapId = c.id;
+      });
+      if (chapId !== __activeChapter) commitChapterTime();
+      __activeChapter = chapId;
+      __chapterFocusStart = Date.now();
+    });
+    ta.addEventListener('blur', commitChapterTime);
   });
 
   // wire skip/star
