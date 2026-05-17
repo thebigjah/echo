@@ -199,7 +199,7 @@
       </div>
       <div>
         <label>Date of this interview</label>
-        <input id="m-date" type="text" placeholder="e.g. June 10, 2026" />
+        <input id="m-date" type="text" placeholder="auto: today" />
       </div>
     </div>
   </div>
@@ -599,6 +599,12 @@ function renderChapters() {
   ['name','nick','born','bornplace','rel','date'].forEach((k) => {
     const el = document.getElementById('m-' + k);
     if (!el) return;
+    // Auto-default interview date to today on first load
+    if (k === 'date' && !state.meta.date) {
+      const today = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+      state.meta.date = today;
+      saveState(state);
+    }
     el.value = state.meta[k] || '';
     el.addEventListener('input', () => { state.meta[k] = el.value; saveState(state); debouncedToast(); });
   });
