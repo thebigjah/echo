@@ -228,6 +228,8 @@
 const CHAPTERS = [
   {
     id: 'early', title: 'Early life', sub: 'Childhood, parents, place',
+    scripture: { ref: 'Psalm 139:13-14', text: 'For you formed my inward parts; you knitted me together in my mother\'s womb. I praise you, for I am fearfully and wonderfully made.' },
+    tips: 'Start gentle. Ask one question. Wait. Don\'t fill silence — most people answer twice when given room. Look at them, not the screen.',
     qs: [
       { id: 'parents-name', q: 'What were your parents\' names?', hint: 'And what did they do for work?' },
       { id: 'siblings',     q: 'Tell me about your brothers and sisters.', hint: 'Names, birth order, who you were closest to.' },
@@ -240,6 +242,8 @@ const CHAPTERS = [
   },
   {
     id: 'youth', title: 'Coming of age', sub: 'Teenage years, dreams, first loves',
+    scripture: { ref: '1 Corinthians 13:11', text: 'When I was a child, I spoke like a child, I thought like a child, I reasoned like a child. When I became a man, I gave up childish ways.' },
+    tips: 'This chapter tends to get vivid. Let them go on tangents — that\'s where the gold is. Don\'t pull them back to your question early.',
     qs: [
       { id: 'teen-dream', q: 'What did you want to be when you grew up?', hint: 'Did you go after it? Why or why not?' },
       { id: 'first-love', q: 'Tell me about your first love.', hint: 'Or your first heartbreak.' },
@@ -250,6 +254,8 @@ const CHAPTERS = [
   },
   {
     id: 'marriage', title: 'Marriage & family', sub: 'Spouse, children, the daily building of a life',
+    scripture: { ref: 'Ecclesiastes 4:9-10', text: 'Two are better than one, because they have a good reward for their toil. For if they fall, one will lift up his fellow.' },
+    tips: 'If they\'re widowed, don\'t avoid the spouse — speak the name. Most older people want to talk about the one they lost. If they get teary, sit with it. Don\'t change the subject.',
     qs: [
       { id: 'how-met', q: 'How did you meet your spouse?', hint: 'The actual story, not the polished version.' },
       { id: 'proposal', q: 'Tell me about the proposal — yours or theirs.', hint: 'And the wedding.' },
@@ -261,6 +267,8 @@ const CHAPTERS = [
   },
   {
     id: 'work', title: 'Work & calling', sub: 'What you did all day and why',
+    scripture: { ref: 'Colossians 3:23', text: 'Whatever you do, work heartily, as for the Lord and not for men.' },
+    tips: 'Ask for specific employers, dates, towns. Concrete details unlock memories abstract questions can\'t reach.',
     qs: [
       { id: 'career-arc', q: 'Walk me through your working life — every major job.', hint: 'In order. Even the ones you hated.' },
       { id: 'proudest-work', q: 'What\'s the piece of work you\'re proudest of?', hint: 'It doesn\'t have to be famous. It has to be yours.' },
@@ -271,6 +279,8 @@ const CHAPTERS = [
   },
   {
     id: 'faith', title: 'Faith', sub: 'God, the church, the long walk',
+    scripture: { ref: 'Psalm 90:1-2', text: 'Lord, you have been our dwelling place in all generations. Before the mountains were brought forth... from everlasting to everlasting you are God.' },
+    tips: 'Faith chapters can feel performative if framed as a test. Don\'t ask if they\'re a good Christian. Ask what God has actually been like to them, over time. Their answer is the real testimony.',
     qs: [
       { id: 'faith-now', q: 'How would you describe your faith today?', hint: 'In your own words. No church language required.' },
       { id: 'church-shaped', q: 'What church or churches shaped you?', hint: 'For better or worse.' },
@@ -282,6 +292,8 @@ const CHAPTERS = [
   },
   {
     id: 'hardship', title: 'Hardship', sub: 'The losses that shaped you',
+    scripture: { ref: 'Romans 8:28', text: 'And we know that for those who love God all things work together for good, for those who are called according to his purpose.' },
+    tips: 'This is the chapter people lie in, or rush. Slow down. Ask the question. If they say "fine" — wait. The real answer usually comes after the polite one.',
     qs: [
       { id: 'hardest-year', q: 'What was the hardest year of your life?', hint: 'What happened? Who carried you through?' },
       { id: 'loss', q: 'Who that you loved have you lost?', hint: 'Name them. Tell me one thing about each.' },
@@ -292,6 +304,8 @@ const CHAPTERS = [
   },
   {
     id: 'world', title: 'The world you lived through', sub: 'History from a first-person seat',
+    scripture: { ref: 'Ecclesiastes 1:9', text: 'What has been is what will be, and what has been done is what will be done, and there is nothing new under the sun.' },
+    tips: 'Anchor each memory to a year if you can. "When the Berlin Wall came down" + "I was 26 and working at..." makes it real for the grandkids who don\'t know either reference.',
     qs: [
       { id: 'big-event', q: 'What world event do you remember most vividly?', hint: 'Where were you when it happened?' },
       { id: 'biggest-change', q: 'What change in everyday life over your lifetime surprises you the most?', hint: 'Technology, manners, politics, anything.' },
@@ -301,6 +315,8 @@ const CHAPTERS = [
   },
   {
     id: 'joy', title: 'Joy', sub: 'The light, not just the weight',
+    scripture: { ref: 'Psalm 16:11', text: 'You make known to me the path of life; in your presence there is fullness of joy.' },
+    tips: 'After heavy chapters, let them breathe. This is the chapter where laughter actually shows up. Let it.',
     qs: [
       { id: 'happiest-day', q: 'What was the happiest day of your life?', hint: 'Tell me the smallest details you can remember.' },
       { id: 'simple-pleasure', q: 'What\'s the simple pleasure you never get tired of?', hint: 'The one you still light up about.' },
@@ -310,6 +326,8 @@ const CHAPTERS = [
   },
   {
     id: 'wisdom', title: 'What you want to pass on', sub: 'For the children, the grandchildren, the ones not born yet',
+    scripture: { ref: 'Deuteronomy 6:6-7', text: 'And these words that I command you today shall be on your heart. You shall teach them diligently to your children, and shall talk of them when you sit in your house.' },
+    tips: 'The closing chapter. The questions are big — they deserve time. If you only get the answer to one of them, get the last one: the blessing. Write it down word for word.',
     qs: [
       { id: 'advice-young-self', q: 'If you could put one hand on the shoulder of your 18-year-old self, what would you say?', hint: 'In your own words.' },
       { id: 'advice-grandkids', q: 'What do you most want your grandkids to know?', hint: 'About God, about people, about life. Or about you.' },
@@ -367,6 +385,18 @@ function renderChapters() {
         <h3 class="chapter-title">${chap.title}</h3>
         <span class="chapter-sub">${chap.sub}</span>
       </div>
+      ${chap.scripture ? `
+      <blockquote style="border-left:3px solid var(--accent);padding:10px 0 10px 16px;margin:14px 0 18px;font-family:'Lora',Georgia,serif;font-style:italic;color:var(--text-muted);font-size:14px;line-height:1.6;">
+        "${escapeHtml(chap.scripture.text)}"
+        <div style="font-style:normal;font-size:12px;color:var(--text-light);margin-top:6px;font-family:Inter,sans-serif;">— ${escapeHtml(chap.scripture.ref)}</div>
+      </blockquote>
+      ` : ''}
+      ${chap.tips ? `
+      <details style="margin-bottom:14px;">
+        <summary style="cursor:pointer;color:var(--text-light);font-size:12px;letter-spacing:.08em;text-transform:uppercase;">Tips for the interviewer</summary>
+        <p style="font-size:14px;color:var(--text-muted);line-height:1.65;margin:8px 0 0;padding-left:4px;">${escapeHtml(chap.tips)}</p>
+      </details>
+      ` : ''}
     `;
     let body = '';
     const customs = state.custom[chap.id] || [];
