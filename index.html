@@ -362,6 +362,7 @@ state.skipped = state.skipped || {}; // qid -> true
 state.starred = state.starred || {}; // qid -> true
 state.custom  = state.custom  || {}; // chapId -> [{ id, q, hint }]
 state.photos  = state.photos  || {}; // qid -> [{ id, dataUrl, caption }]
+state.featured = state.featured || null; // qid of the one "featured quote" — pulled to top of generated doc
 
 function showSaveToast() {
   const t = document.getElementById('save-toast');
@@ -418,6 +419,7 @@ function renderChapters() {
             <span class="q-hint">${escapeHtml(q.hint)}</span>
           </label>
           <div class="q-tools">
+            <button class="q-tool ${state.featured === q.id ? 'on' : ''}" title="Mark as THE quote of the conversation (pulls to top of generated doc)" data-feature="${q.id}">"</button>
             <button class="q-tool ${starred ? 'on' : ''}" title="Star this question" data-star="${q.id}">★</button>
             <button class="q-tool ${skipped ? 'on' : ''}" title="${skipped ? 'Un-skip' : 'Skip this question'}" data-skip="${q.id}">${skipped ? '↺' : '⊘'}</button>
             ${isCustom ? `<button class="q-tool" title="Delete custom question" data-delq="${chap.id}|${q.id}">×</button>` : ''}
@@ -461,6 +463,15 @@ function renderChapters() {
     btn.addEventListener('click', () => {
       const qid = btn.dataset.skip;
       state.skipped[qid] = !state.skipped[qid];
+      saveState(state);
+      renderChapters();
+      showSaveToast();
+    });
+  });
+  chaptersEl.querySelectorAll('[data-feature]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const qid = btn.dataset.feature;
+      state.featured = (state.featured === qid) ? null : qid;
       saveState(state);
       renderChapters();
       showSaveToast();
@@ -690,6 +701,25 @@ function generate() {
     <p class="dates">${born}${bornplace}${date ? ' · interview' + date : ''}</p>
     <p style="font-size:14px;color:#888;margin-bottom:30px;">A life captured in their own words.${rel}</p>
   `;
+  // Featured quote — pulled to top above all chapters
+  if (state.featured) {
+    const featuredAnswer = (state.answers[state.featured] || '').trim();
+    if (featuredAnswer) {
+      let featuredQuestion = '';
+      CHAPTERS.forEach(c => {
+        const customs = state.custom[c.id] || [];
+        [...c.qs, ...customs].forEach(q => {
+          if (q.id === state.featured) featuredQuestion = q.q;
+        });
+      });
+      html += `
+        <blockquote style="margin:0 0 36px;padding:24px 28px;background:#f5efe1;border-left:5px solid #b9aa7a;font-family:'Cinzel',Georgia,serif;font-size:22px;line-height:1.5;color:#3a3328;font-style:italic;">
+          &ldquo;${escapeHtml(featuredAnswer.split('\n')[0])}&rdquo;
+          <div style="font-style:normal;font-size:12px;color:#6b5e3f;margin-top:14px;font-family:Inter,sans-serif;letter-spacing:0.04em;">— in response to: ${escapeHtml(featuredQuestion)}</div>
+        </blockquote>
+      `;
+    }
+  }
   CHAPTERS.forEach((chap) => {
     const customs = state.custom[chap.id] || [];
     const chapterContent = [...chap.qs, ...customs].map(q => {
