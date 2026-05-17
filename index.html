@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
 <style>
   :root {
     --bg: #0a0604;
@@ -218,6 +219,7 @@
   <div class="actions">
     <button class="btn btn-primary" id="btn-generate">Generate the life story →</button>
     <button class="btn btn-ghost" id="btn-export-md">Export as Markdown</button>
+    <button class="btn btn-ghost" id="btn-export-zip">Export FULL archive (story + photos + audio)</button>
     <button class="btn btn-ghost" id="btn-clear">Start over</button>
   </div>
 
@@ -953,6 +955,71 @@ function exportMarkdown() {
 
 document.getElementById('btn-generate').addEventListener('click', generate);
 document.getElementById('btn-export-md').addEventListener('click', exportMarkdown);
+document.getElementById('btn-export-zip').addEventListener('click', exportArchive);
+
+async function exportArchive() {
+  if (typeof JSZip === 'undefined') {
+    alert('JSZip is still loading, try again in a second.');
+    return;
+  }
+  const name = (state.meta.name || 'life-story').replace(/[^a-z0-9-]+/gi, '-').toLowerCase();
+  const zip = new JSZip();
+  // 1. The markdown story
+  zip.file('story.md', generateMarkdown());
+  // 2. JSON dump of all state for re-import / archival
+  zip.file('echo-state.json', JSON.stringify(state, null, 2));
+  // 3. Photos folder
+  let photoCount = 0;
+  for (const [qid, photos] of Object.entries(state.photos || {})) {
+    for (let i = 0; i < photos.length; i++) {
+      const p = photos[i];
+      // dataUrl is "data:image/jpeg;base64,...."
+      const b64 = (p.dataUrl || '').split(',')[1];
+      if (b64) {
+        zip.file(`photos/${qid}-${i}.jpg`, b64, { base64: true });
+        photoCount++;
+      }
+    }
+  }
+  // 4. Audio folder — pull from IndexedDB
+  let audioCount = 0;
+  try {
+    const qids = await listAudioQids();
+    for (const qid of qids) {
+      const rec = await getAudioBlob(qid);
+      if (rec?.blob) {
+        zip.file(`audio/${qid}.webm`, rec.blob);
+        audioCount++;
+      }
+    }
+  } catch (e) { console.warn('audio export failed', e); }
+  // 5. README explaining the archive
+  zip.file('README.txt', `Echo archive for ${state.meta.name || 'this life'}
+Generated ${new Date().toLocaleString()}
+
+Contents:
+- story.md — the printable life story (open in any markdown viewer or text editor)
+- echo-state.json — full backup of the interview, importable back into Echo
+- photos/ — ${photoCount} photo${photoCount === 1 ? '' : 's'} attached to specific questions (filenames are question IDs)
+- audio/ — ${audioCount} voice recording${audioCount === 1 ? '' : 's'} per question (.webm format, playable in any modern browser)
+
+To re-import into Echo: paste the contents of echo-state.json into your browser's
+localStorage under the key "echo.story.v1". (Or just bring it to whoever maintains
+Echo and they can help.)
+
+Built with Echo — https://thebigjah.github.io/echo/
+`);
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name}-echo-archive-${new Date().toISOString().slice(0,10)}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showSaveToast();
+}
 document.getElementById('btn-clear').addEventListener('click', () => {
   if (!confirm('Erase all answers and start over? This cannot be undone.')) return;
   localStorage.removeItem(KEY);
