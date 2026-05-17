@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Echo — Capture a life story before it's gone</title>
+<meta name="description" content="A guided interview tool for capturing the life story of an elderly or dying loved one. 60 curated questions across 9 chapters. Output is a printable Wikipedia-style life document.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0604;
+    --bg-2: #16110b;
+    --card: #1b1510;
+    --border: #2e2820;
+    --border-light: #3a342a;
+    --text: #f5f0e0;
+    --text-muted: #b6a98e;
+    --text-light: #847b69;
+    --accent: #c2a173;
+    --accent-bright: #e8b968;
+    --intrusion: #e54a28;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+  }
+  body { min-height: 100vh; padding: 0 0 80px; }
+  .serif { font-family: 'Cinzel', Georgia, serif; }
+  .lora { font-family: 'Lora', Georgia, serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 48px 24px; }
+  h1.title { font-family: 'Cinzel', Georgia, serif; font-size: clamp(36px, 5vw, 56px); font-weight: 700; margin: 0 0 12px; line-height: 1.05; }
+  .kicker { font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin-bottom: 18px; }
+  p.lead { font-size: 18px; color: var(--text-muted); max-width: 640px; line-height: 1.65; margin: 0 0 28px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 28px; margin-bottom: 24px; }
+  .chapter-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+  .chapter-num { font-size: 11px; font-weight: 700; letter-spacing: .14em; color: var(--accent); text-transform: uppercase; }
+  .chapter-title { font-family: 'Cinzel', Georgia, serif; font-size: 24px; color: var(--text); margin: 0; }
+  .chapter-sub { font-size: 14px; color: var(--text-light); }
+  label.q-label { display: block; font-size: 15px; color: var(--text); margin: 16px 0 8px; font-weight: 500; }
+  label.q-label .q-hint { display: block; font-size: 13px; color: var(--text-light); font-weight: 400; margin-top: 2px; }
+  textarea {
+    width: 100%; min-height: 70px; padding: 12px 14px;
+    background: var(--bg-2); color: var(--text);
+    border: 1px solid var(--border-light); border-radius: 8px;
+    font-family: 'Lora', Georgia, serif; font-size: 16px; line-height: 1.55;
+    outline: none; resize: vertical;
+  }
+  textarea:focus { border-color: var(--accent); }
+  input[type=text] {
+    width: 100%; padding: 12px 14px;
+    background: var(--bg-2); color: var(--text);
+    border: 1px solid var(--border-light); border-radius: 8px;
+    font-family: 'Lora', Georgia, serif; font-size: 16px;
+    outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .meta-grid label { display: block; font-size: 11px; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: .12em; margin-bottom: 6px; }
+  .btn {
+    appearance: none; border: none; cursor: pointer;
+    padding: 14px 28px; border-radius: 8px;
+    font-family: inherit; font-size: 15px; font-weight: 700; letter-spacing: .04em;
+    transition: transform 80ms ease, background 120ms ease;
+  }
+  .btn:active { transform: translateY(1px) scale(.99); }
+  .btn-primary { background: var(--accent); color: var(--bg); }
+  .btn-ghost   { background: transparent; color: var(--text); border: 1px solid var(--border-light); }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin: 36px 0 20px; }
+  .progress { background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; height: 8px; overflow: hidden; margin: 16px 0 28px; }
+  .progress > div { height: 100%; background: var(--accent); transition: width 160ms ease; }
+  .progress-text { font-size: 12px; color: var(--text-light); letter-spacing: .06em; text-align: right; margin-bottom: 16px; }
+
+  /* Output: Wikipedia-style print layout */
+  .output { background: #fff; color: #14110b; padding: 0; margin-top: 40px; border-radius: 0; }
+  .output .article { padding: 56px clamp(28px, 6vw, 80px); font-family: 'Lora', Georgia, serif; font-size: 17px; line-height: 1.7; }
+  .output h1 { font-family: 'Cinzel', Georgia, serif; font-size: 48px; margin: 0 0 4px; line-height: 1.05; }
+  .output .dates { font-size: 16px; color: #5d564a; margin-bottom: 24px; font-style: italic; }
+  .output h2 { font-family: 'Cinzel', Georgia, serif; font-size: 26px; margin: 36px 0 8px; padding-bottom: 6px; border-bottom: 2px solid #b9aa7a; }
+  .output h3 { font-family: 'Cinzel', Georgia, serif; font-size: 18px; margin: 24px 0 4px; color: #6b5e3f; }
+  .output p { margin: 8px 0 14px; }
+  .output blockquote { border-left: 3px solid #b9aa7a; padding-left: 18px; margin: 16px 0; font-style: italic; color: #3a3328; }
+  .output .footer { margin-top: 36px; padding-top: 18px; border-top: 1px solid #ddd; font-size: 12px; color: #888; }
+  .output-actions { display: flex; gap: 10px; flex-wrap: wrap; padding: 20px 24px; background: #ecebe5; }
+
+  @media print {
+    body { background: #fff !important; color: #14110b !important; padding: 0; }
+    .wrap > *:not(.output) { display: none !important; }
+    .output { box-shadow: none; }
+    .output-actions { display: none; }
+    .output .article { padding: 0; }
+  }
+  .footer-note { font-size: 13px; color: var(--text-light); text-align: center; margin-top: 40px; }
+  .footer-note a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="kicker">Capture a life before it's gone</p>
+  <h1 class="title">Echo.</h1>
+  <p class="lead">
+    Most lives don't get written down. A guided interview, asked patiently across a few sittings, becomes a Wikipedia-style document the family can hold forever. Bring this to someone old. Read the questions aloud. Type their answers. Print the result.
+  </p>
+
+  <div class="card">
+    <h2 class="chapter-title serif" style="margin: 0 0 14px;">About this person</h2>
+    <div class="meta-grid">
+      <div>
+        <label>Their full name</label>
+        <input id="m-name" type="text" placeholder="e.g. Mary Catherine Wallace" />
+      </div>
+      <div>
+        <label>Nickname / what people call them</label>
+        <input id="m-nick" type="text" placeholder="e.g. Kiki" />
+      </div>
+      <div>
+        <label>Born (year or full date)</label>
+        <input id="m-born" type="text" placeholder="e.g. 1948" />
+      </div>
+      <div>
+        <label>Place of birth</label>
+        <input id="m-bornplace" type="text" placeholder="e.g. Birmingham, AL" />
+      </div>
+      <div>
+        <label>Your relationship to them</label>
+        <input id="m-rel" type="text" placeholder="e.g. her grandson Elijah" />
+      </div>
+      <div>
+        <label>Date of this interview</label>
+        <input id="m-date" type="text" placeholder="e.g. June 10, 2026" />
+      </div>
+    </div>
+  </div>
+
+  <div class="progress-text"><span id="progress-text-val">0 of 0 questions answered</span></div>
+  <div class="progress"><div id="progress-bar" style="width:0%"></div></div>
+
+  <div id="chapters"></div>
+
+  <div class="actions">
+    <button class="btn btn-primary" id="btn-generate">Generate the life story →</button>
+    <button class="btn btn-ghost" id="btn-save">Save progress</button>
+    <button class="btn btn-ghost" id="btn-clear">Start over</button>
+  </div>
+
+  <div id="output" class="output" style="display:none;">
+    <div class="output-actions">
+      <button class="btn btn-primary" onclick="window.print()">Print to PDF / paper</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('output').style.display='none'; window.scrollTo({top:0,behavior:'smooth'});">Back to editing</button>
+    </div>
+    <div class="article" id="article"></div>
+  </div>
+
+  <p class="footer-note">
+    Echo v0.1 · saves locally to your browser · a Purcell Ventures tool · for the lives that don't get written down on their own
+  </p>
+</main>
+
+<script>
+const CHAPTERS = [
+  {
+    id: 'early', title: 'Early life', sub: 'Childhood, parents, place',
+    qs: [
+      { id: 'parents-name', q: 'What were your parents\' names?', hint: 'And what did they do for work?' },
+      { id: 'siblings',     q: 'Tell me about your brothers and sisters.', hint: 'Names, birth order, who you were closest to.' },
+      { id: 'childhood-home', q: 'Where did you grow up? What did the house look like?', hint: 'A street, a room, a sound, a smell.' },
+      { id: 'earliest-memory', q: 'What is your earliest memory?', hint: 'Even if it\'s small or seems random.' },
+      { id: 'childhood-faith', q: 'What was your family\'s faith like when you were a child?', hint: 'What did Sundays look like? Was God real to you then?' },
+      { id: 'school-felt-like', q: 'What did school feel like for you?', hint: 'Which teachers do you still remember? Who were your friends?' },
+      { id: 'first-job', q: 'What was your first job?', hint: 'How much did it pay? What did you learn?' },
+    ],
+  },
+  {
+    id: 'youth', title: 'Coming of age', sub: 'Teenage years, dreams, first loves',
+    qs: [
+      { id: 'teen-dream', q: 'What did you want to be when you grew up?', hint: 'Did you go after it? Why or why not?' },
+      { id: 'first-love', q: 'Tell me about your first love.', hint: 'Or your first heartbreak.' },
+      { id: 'youth-defining', q: 'What event in your teens or twenties shaped you the most?', hint: 'Something you can still feel.' },
+      { id: 'mentor-young', q: 'Who, outside your parents, shaped you when you were young?', hint: 'Teacher, pastor, neighbor, boss, friend\'s mom.' },
+      { id: 'first-time-far', q: 'What was the first time you traveled far from home?', hint: 'What did you notice that you\'d never seen before?' },
+    ],
+  },
+  {
+    id: 'marriage', title: 'Marriage & family', sub: 'Spouse, children, the daily building of a life',
+    qs: [
+      { id: 'how-met', q: 'How did you meet your spouse?', hint: 'The actual story, not the polished version.' },
+      { id: 'proposal', q: 'Tell me about the proposal — yours or theirs.', hint: 'And the wedding.' },
+      { id: 'first-year', q: 'What was the first year of marriage actually like?', hint: 'Be honest. It usually isn\'t the easy part.' },
+      { id: 'children', q: 'Tell me about each of your children. One memory of each.', hint: 'The one you always come back to.' },
+      { id: 'parenting-lesson', q: 'What did you learn about being a parent that surprised you?', hint: 'What did you get wrong that you wish you could redo?' },
+      { id: 'grandkids', q: 'What is being a grandparent like, compared to being a parent?', hint: 'What do you see now that you missed before?' },
+    ],
+  },
+  {
+    id: 'work', title: 'Work & calling', sub: 'What you did all day and why',
+    qs: [
+      { id: 'career-arc', q: 'Walk me through your working life — every major job.', hint: 'In order. Even the ones you hated.' },
+      { id: 'proudest-work', q: 'What\'s the piece of work you\'re proudest of?', hint: 'It doesn\'t have to be famous. It has to be yours.' },
+      { id: 'worst-boss', q: 'Tell me about the worst boss or job you ever had.', hint: 'What did it teach you?' },
+      { id: 'money-rule', q: 'What\'s your rule about money?', hint: 'The one you learned the hard way.' },
+      { id: 'calling-vs-job', q: 'Looking back, did you find your calling, or just a job?', hint: 'Is there a difference, in your view?' },
+    ],
+  },
+  {
+    id: 'faith', title: 'Faith', sub: 'God, the church, the long walk',
+    qs: [
+      { id: 'faith-now', q: 'How would you describe your faith today?', hint: 'In your own words. No church language required.' },
+      { id: 'church-shaped', q: 'What church or churches shaped you?', hint: 'For better or worse.' },
+      { id: 'faith-changed', q: 'How has your understanding of God changed over your life?', hint: 'What did you used to believe that you don\'t anymore?' },
+      { id: 'prayer-life', q: 'What\'s your prayer life like now?', hint: 'When? Where? About what?' },
+      { id: 'doubt', q: 'Tell me about a time you doubted.', hint: 'What pulled you back, or didn\'t.' },
+      { id: 'scripture-anchor', q: 'Is there a scripture or hymn you come back to?', hint: 'Tell me the verse and what it means to you.' },
+    ],
+  },
+  {
+    id: 'hardship', title: 'Hardship', sub: 'The losses that shaped you',
+    qs: [
+      { id: 'hardest-year', q: 'What was the hardest year of your life?', hint: 'What happened? Who carried you through?' },
+      { id: 'loss', q: 'Who that you loved have you lost?', hint: 'Name them. Tell me one thing about each.' },
+      { id: 'regret', q: 'What\'s the regret you carry?', hint: 'You don\'t have to share it if you don\'t want to. But the rest of us learn from yours.' },
+      { id: 'forgive', q: 'Who have you had to forgive?', hint: 'And who have you needed to ask forgiveness from?' },
+      { id: 'healed-from', q: 'What have you healed from?', hint: 'And what hasn\'t healed yet?' },
+    ],
+  },
+  {
+    id: 'world', title: 'The world you lived through', sub: 'History from a first-person seat',
+    qs: [
+      { id: 'big-event', q: 'What world event do you remember most vividly?', hint: 'Where were you when it happened?' },
+      { id: 'biggest-change', q: 'What change in everyday life over your lifetime surprises you the most?', hint: 'Technology, manners, politics, anything.' },
+      { id: 'culture-younger', q: 'What was popular when you were young that the kids today would not understand?', hint: 'Songs, dances, shows, slang.' },
+      { id: 'patriotism', q: 'How has your view of your country changed over your life?', hint: 'Be candid.' },
+    ],
+  },
+  {
+    id: 'joy', title: 'Joy', sub: 'The light, not just the weight',
+    qs: [
+      { id: 'happiest-day', q: 'What was the happiest day of your life?', hint: 'Tell me the smallest details you can remember.' },
+      { id: 'simple-pleasure', q: 'What\'s the simple pleasure you never get tired of?', hint: 'The one you still light up about.' },
+      { id: 'best-friendship', q: 'Tell me about your closest friendship.', hint: 'How did it start? How did it last?' },
+      { id: 'laugh', q: 'What story do you tell that always makes people laugh?', hint: 'Tell it now.' },
+    ],
+  },
+  {
+    id: 'wisdom', title: 'What you want to pass on', sub: 'For the children, the grandchildren, the ones not born yet',
+    qs: [
+      { id: 'advice-young-self', q: 'If you could put one hand on the shoulder of your 18-year-old self, what would you say?', hint: 'In your own words.' },
+      { id: 'advice-grandkids', q: 'What do you most want your grandkids to know?', hint: 'About God, about people, about life. Or about you.' },
+      { id: 'misunderstood', q: 'What\'s the thing people most often misunderstand about you?', hint: 'And do you want to set it straight?' },
+      { id: 'most-grateful', q: 'What are you most grateful for, looking back?', hint: 'Person. Decision. Gift. Coincidence. Grace.' },
+      { id: 'how-remembered', q: 'How do you want to be remembered?', hint: 'Be honest. We\'ll honor it.' },
+      { id: 'final-blessing', q: 'Is there a blessing you want to leave for the people who will read this?', hint: 'Speak it now. We will write it down word for word.' },
+    ],
+  },
+];
+
+const KEY = 'echo.story.v1';
+
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; }
+  catch { return {}; }
+}
+function saveState(s) {
+  localStorage.setItem(KEY, JSON.stringify(s));
+}
+
+const state = loadState();
+state.answers = state.answers || {};
+state.meta = state.meta || {};
+
+const chaptersEl = document.getElementById('chapters');
+
+function renderChapters() {
+  chaptersEl.innerHTML = '';
+  let totalQs = 0, answeredQs = 0;
+  CHAPTERS.forEach((chap, ci) => {
+    totalQs += chap.qs.length;
+    const card = document.createElement('div');
+    card.className = 'card';
+    const head = `
+      <div class="chapter-head">
+        <span class="chapter-num">CHAPTER ${String(ci+1).padStart(2,'0')}</span>
+        <h3 class="chapter-title">${chap.title}</h3>
+        <span class="chapter-sub">${chap.sub}</span>
+      </div>
+    `;
+    let body = '';
+    chap.qs.forEach((q) => {
+      const val = (state.answers[q.id] || '').replace(/"/g, '&quot;');
+      if (val.trim()) answeredQs++;
+      body += `
+        <label class="q-label" for="q-${q.id}">${q.q}
+          <span class="q-hint">${q.hint}</span>
+        </label>
+        <textarea id="q-${q.id}" data-q="${q.id}" placeholder="(their words — type as they speak)">${val}</textarea>
+      `;
+    });
+    card.innerHTML = head + body;
+    chaptersEl.appendChild(card);
+  });
+
+  // wire textareas
+  chaptersEl.querySelectorAll('textarea[data-q]').forEach((ta) => {
+    ta.addEventListener('input', (e) => {
+      state.answers[e.target.dataset.q] = e.target.value;
+      saveState(state);
+      updateProgress();
+    });
+  });
+
+  // wire meta inputs
+  ['name','nick','born','bornplace','rel','date'].forEach((k) => {
+    const el = document.getElementById('m-' + k);
+    if (!el) return;
+    el.value = state.meta[k] || '';
+    el.addEventListener('input', () => { state.meta[k] = el.value; saveState(state); });
+  });
+
+  updateProgress();
+}
+
+function updateProgress() {
+  let total = 0, done = 0;
+  CHAPTERS.forEach(c => c.qs.forEach(q => {
+    total++;
+    if ((state.answers[q.id] || '').trim()) done++;
+  }));
+  const pct = total ? Math.round((done/total)*100) : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-text-val').textContent = `${done} of ${total} questions answered (${pct}%)`;
+}
+
+function paragraphify(text) {
+  return (text || '').trim()
+    .split(/\n\s*\n/)
+    .map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
+
+function generate() {
+  const m = state.meta;
+  const name = m.name?.trim() || 'A Life';
+  const nick = m.nick?.trim();
+  const born = m.born?.trim() ? `b. ${escapeHtml(m.born)}` : '';
+  const bornplace = m.bornplace?.trim() ? `, ${escapeHtml(m.bornplace)}` : '';
+  const rel = m.rel?.trim() ? ` Interviewed by ${escapeHtml(m.rel)}.` : '';
+  const date = m.date?.trim() ? ` (${escapeHtml(m.date)})` : '';
+
+  let html = `
+    <h1>${escapeHtml(name)}</h1>
+    ${nick ? `<p style="font-size:18px;color:#5d564a;margin:0 0 4px;">Known as <em>${escapeHtml(nick)}</em></p>` : ''}
+    <p class="dates">${born}${bornplace}${date ? ' · interview' + date : ''}</p>
+    <p style="font-size:14px;color:#888;margin-bottom:30px;">A life captured in their own words.${rel}</p>
+  `;
+  CHAPTERS.forEach((chap) => {
+    const chapterContent = chap.qs.map(q => {
+      const a = (state.answers[q.id] || '').trim();
+      if (!a) return null;
+      return `
+        <h3>${escapeHtml(q.q)}</h3>
+        ${paragraphify(a)}
+      `;
+    }).filter(Boolean).join('');
+    if (chapterContent.trim()) {
+      html += `<h2>${escapeHtml(chap.title)}</h2>${chapterContent}`;
+    }
+  });
+  html += `<div class="footer">Captured with Echo · ${new Date().toLocaleDateString()}</div>`;
+  document.getElementById('article').innerHTML = html;
+  document.getElementById('output').style.display = 'block';
+  document.getElementById('output').scrollIntoView({ behavior: 'smooth' });
+}
+
+document.getElementById('btn-generate').addEventListener('click', generate);
+document.getElementById('btn-save').addEventListener('click', () => {
+  saveState(state);
+  const b = document.getElementById('btn-save');
+  const t = b.textContent;
+  b.textContent = '✓ Saved';
+  setTimeout(() => { b.textContent = t; }, 1500);
+});
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (!confirm('Erase all answers and start over? This cannot be undone.')) return;
+  localStorage.removeItem(KEY);
+  state.answers = {};
+  state.meta = {};
+  renderChapters();
+});
+
+renderChapters();
+</script>
+</body>
+</html>
