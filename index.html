@@ -13,76 +13,279 @@
 <meta name="theme-color" content="#0a0604">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700&family=VT323&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
 <style>
+/*  ============================================================
+    ECHO · 1970s cassette-tape recorder / oral history archive
+    -----------------------------------------------------------
+    Theme: a beige plastic cassette recorder. Console-dark deck
+    face, off-white tape labels for each chapter, red record-
+    button accent, mono-typewriter timecodes. The interview is
+    being CAPTURED on tape, not edited in a doc.
+    ============================================================ */
   :root {
-    --bg: #0a0604;
-    --bg-2: #16110b;
-    --card: #1b1510;
-    --border: #2e2820;
-    --border-light: #3a342a;
-    --text: #f5f0e0;
-    --text-muted: #b6a98e;
-    --text-light: #847b69;
-    --accent: #c2a173;
-    --accent-bright: #e8b968;
-    --intrusion: #e54a28;
+    --case:#cdb98c;
+    --case-deep:#a89668;
+    --console:#262420;
+    --console-light:#363229;
+    --tape-label:#f0eaca;
+    --tape-label-shade:#dccfa8;
+    --paper:#fffdf2;
+    --ink:#1a1714;
+    --ink-soft:#3e3a30;
+    --ink-faint:#7a7460;
+    --rec:#d63a1a;
+    --rec-deep:#a02810;
+    --vu-green:#3a8a4a;
+    --vu-amber:#c89018;
+    --vu-red:#c83018;
+    --rule:rgba(26, 23, 20, 0.18);
+    --rule-strong:rgba(26, 23, 20, 0.42);
+    --bg: var(--case);
+    --bg-2: var(--tape-label);
+    --card: var(--tape-label);
+    --border: var(--rule);
+    --border-light: var(--rule);
+    --text: var(--ink);
+    --text-muted: var(--ink-soft);
+    --text-light: var(--ink-faint);
+    --accent: var(--rec);
+    --accent-bright: var(--rec);
+    --intrusion: var(--rec);
+
+    --display:'Archivo Black', Impact, sans-serif;
+    --body:'Archivo', system-ui, sans-serif;
+    --label:'VT323', monospace;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    background: var(--case);
+    color: var(--ink);
+    font-family: var(--body);
+    font-weight: 400;
     -webkit-font-smoothing: antialiased;
     line-height: 1.55;
   }
-  body { min-height: 100vh; padding: 0 0 80px; }
-  .serif { font-family: 'Cinzel', Georgia, serif; }
-  .lora { font-family: 'Lora', Georgia, serif; }
-  .wrap { max-width: 860px; margin: 0 auto; padding: 48px 24px; }
-  h1.title { font-family: 'Cinzel', Georgia, serif; font-size: clamp(36px, 5vw, 56px); font-weight: 700; margin: 0 0 12px; line-height: 1.05; }
-  .kicker { font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin-bottom: 18px; }
-  p.lead { font-size: 18px; color: var(--text-muted); max-width: 640px; line-height: 1.65; margin: 0 0 28px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 28px; margin-bottom: 24px; }
-  .chapter-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
-  .chapter-num { font-size: 11px; font-weight: 700; letter-spacing: .14em; color: var(--accent); text-transform: uppercase; }
-  .chapter-title { font-family: 'Cinzel', Georgia, serif; font-size: 24px; color: var(--text); margin: 0; }
-  .chapter-sub { font-size: 14px; color: var(--text-light); }
-  label.q-label { display: block; font-size: 15px; color: var(--text); margin: 16px 0 8px; font-weight: 500; }
-  label.q-label .q-hint { display: block; font-size: 13px; color: var(--text-light); font-weight: 400; margin-top: 2px; }
+  /* Case plastic texture */
+  body {
+    min-height: 100vh; padding: 0 0 80px;
+    position: relative;
+  }
+  body::before {
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.0' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/></svg>");
+    opacity:0.08;mix-blend-mode:multiply;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px; position: relative; z-index: 2; }
+
+  /* CONSOLE — the dark deck face */
+  .console {
+    background: var(--console);
+    color: var(--tape-label);
+    padding: 24px 28px;
+    margin-bottom: 28px;
+    position: relative;
+    box-shadow:
+      inset 0 -4px 0 #0c0a08,
+      0 2px 0 var(--case-deep),
+      0 12px 24px rgba(0, 0, 0, 0.25);
+    border-radius: 4px 4px 0 0;
+  }
+  .console-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 24px;
+  }
+  .reel {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #5a5046 0%, #1a1612 70%);
+    border: 3px solid #6a5e48;
+    position: relative;
+    box-shadow: inset 0 0 8px rgba(0,0,0,0.5);
+    flex-shrink: 0;
+  }
+  .reel::before {
+    content:""; position:absolute; inset:14px; border-radius:50%;
+    background: var(--case);
+    box-shadow: inset 0 0 4px rgba(0,0,0,0.4);
+  }
+  .reel::after {
+    content:""; position:absolute; top:50%; left:50%; width:4px; height:4px;
+    background: var(--console); border-radius:50%;
+    transform: translate(-50%, -50%);
+  }
+  .console-title {
+    font-family: var(--display); font-weight: 400;
+    color: var(--tape-label);
+    font-size: 16px; letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .console-title .model {
+    display: block;
+    font-family: var(--label); font-size: 14px;
+    color: var(--rec); margin-top: 2px;
+    letter-spacing: 0.1em;
+  }
+  .rec-light {
+    width: 12px; height: 12px;
+    background: var(--rec); border-radius: 50%;
+    box-shadow: 0 0 8px var(--rec);
+    animation: rec-blink 1.6s infinite;
+  }
+  @keyframes rec-blink { 0%,80% { opacity: 1; } 90% { opacity: 0.3; } }
+  .timecode {
+    font-family: var(--label); font-size: 22px;
+    color: var(--rec); margin-left: 4px;
+    letter-spacing: 0.04em;
+  }
+
+  /* MASTHEAD */
+  h1.title {
+    font-family: var(--display); font-weight: 400;
+    font-size: clamp(48px, 8vw, 88px);
+    color: var(--ink);
+    margin: 0 0 14px;
+    line-height: 0.95;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+  }
+  .kicker {
+    font-family: var(--label); font-size: 17px;
+    color: var(--rec); margin-bottom: 14px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  p.lead {
+    font-family: var(--body); font-size: 17px;
+    color: var(--ink-soft);
+    max-width: 640px; line-height: 1.55;
+    margin: 0 0 28px;
+  }
+
+  /* CARD — tape label insert */
+  .card {
+    background: var(--tape-label);
+    border: 1px solid var(--rule-strong);
+    border-left: 6px solid var(--rec);
+    border-radius: 0;
+    padding: 24px 28px;
+    margin-bottom: 22px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    position: relative;
+  }
+  .card::before {
+    /* hole-punch top */
+    content:""; position:absolute; top:-6px; left:50%;
+    width: 22px; height: 12px;
+    background: var(--case);
+    border-radius: 0 0 12px 12px;
+    transform: translateX(-50%);
+  }
+  .chapter-head {
+    display: flex; align-items: baseline; gap: 14px;
+    flex-wrap: wrap; margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--rule-strong);
+  }
+  .chapter-num {
+    font-family: var(--label); font-size: 16px;
+    color: var(--rec);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .chapter-title {
+    font-family: var(--display); font-weight: 400;
+    font-size: 26px; color: var(--ink);
+    margin: 0; letter-spacing: 0.01em;
+    text-transform: uppercase;
+  }
+  .chapter-sub {
+    font-family: var(--label); font-size: 15px;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+  }
+  label.q-label {
+    display: block;
+    font-family: var(--body); font-size: 15.5px;
+    color: var(--ink); margin: 16px 0 8px;
+    font-weight: 600;
+  }
+  label.q-label .q-hint {
+    display: block;
+    font-family: var(--label); font-size: 15px;
+    color: var(--ink-faint); font-weight: 400;
+    margin-top: 2px; letter-spacing: 0.02em;
+  }
+
   textarea {
-    width: 100%; min-height: 70px; padding: 12px 14px;
-    background: var(--bg-2); color: var(--text);
-    border: 1px solid var(--border-light); border-radius: 8px;
-    font-family: 'Lora', Georgia, serif; font-size: 16px; line-height: 1.55;
+    width: 100%; min-height: 72px; padding: 11px 14px;
+    background: var(--paper); color: var(--ink);
+    border: 1px solid var(--rule-strong); border-radius: 0;
+    font-family: var(--label); font-size: 18px; line-height: 1.5;
     outline: none; resize: vertical;
   }
-  textarea:focus { border-color: var(--accent); }
+  textarea:focus { border-color: var(--rec); }
   input[type=text] {
-    width: 100%; padding: 12px 14px;
-    background: var(--bg-2); color: var(--text);
-    border: 1px solid var(--border-light); border-radius: 8px;
-    font-family: 'Lora', Georgia, serif; font-size: 16px;
+    width: 100%; padding: 10px 14px;
+    background: var(--paper); color: var(--ink);
+    border: 1px solid var(--rule-strong); border-radius: 0;
+    font-family: var(--label); font-size: 17px;
     outline: none;
   }
-  input[type=text]:focus { border-color: var(--accent); }
+  input[type=text]:focus { border-color: var(--rec); }
   .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-  .meta-grid label { display: block; font-size: 11px; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: .12em; margin-bottom: 6px; }
+  .meta-grid label {
+    display: block;
+    font-family: var(--body); font-weight: 600;
+    font-size: 10.5px;
+    color: var(--rec); text-transform: uppercase;
+    letter-spacing: 0.2em; margin-bottom: 6px;
+  }
+
+  /* CONSOLE BUTTONS */
   .btn {
     appearance: none; border: none; cursor: pointer;
-    padding: 14px 28px; border-radius: 8px;
-    font-family: inherit; font-size: 15px; font-weight: 700; letter-spacing: .04em;
+    padding: 12px 22px; border-radius: 0;
+    font-family: var(--display); font-weight: 400;
+    font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase;
     transition: transform 80ms ease, background 120ms ease;
+    background: var(--console); color: var(--tape-label);
+    box-shadow: 0 3px 0 #0c0a08;
   }
-  .btn:active { transform: translateY(1px) scale(.99); }
-  .btn-primary { background: var(--accent); color: var(--bg); }
-  .btn-ghost   { background: transparent; color: var(--text); border: 1px solid var(--border-light); }
-  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin: 36px 0 20px; }
-  .progress { background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; height: 8px; overflow: hidden; margin: 16px 0 28px; }
-  .progress > div { height: 100%; background: var(--accent); transition: width 160ms ease; }
-  .progress-text { font-size: 12px; color: var(--text-light); letter-spacing: .06em; text-align: right; margin-bottom: 16px; }
+  .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #0c0a08; }
+  .btn-primary { background: var(--rec); color: var(--paper); box-shadow: 0 3px 0 var(--rec-deep); }
+  .btn-primary:active { box-shadow: 0 1px 0 var(--rec-deep); }
+  .btn-ghost {
+    background: transparent; color: var(--ink);
+    border: 1.5px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .btn-ghost:hover { background: var(--ink); color: var(--tape-label); }
+  .btn-ghost:active { transform: translate(2px, 2px); box-shadow: 0 0 0 var(--ink); }
+  .actions { display: flex; gap: 14px; flex-wrap: wrap; margin: 36px 0 20px; }
+
+  /* PROGRESS = VU METER */
+  .progress {
+    background: var(--console);
+    border: 2px solid var(--console);
+    border-radius: 0; height: 16px;
+    overflow: hidden; margin: 16px 0 28px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+    position: relative;
+  }
+  .progress > div {
+    height: 100%;
+    background: linear-gradient(90deg, var(--vu-green) 0%, var(--vu-green) 60%, var(--vu-amber) 60%, var(--vu-amber) 85%, var(--vu-red) 85%);
+    transition: width 160ms ease;
+  }
+  .progress-text {
+    font-family: var(--label); font-size: 17px;
+    color: var(--ink-soft);
+    letter-spacing: 0.04em;
+    text-align: right; margin-bottom: 8px;
+  }
 
   /* Output: Wikipedia-style print layout */
   .output { background: #fff; color: #14110b; padding: 0; margin-top: 40px; border-radius: 0; }
@@ -103,8 +306,24 @@
     .output-actions { display: none; }
     .output .article { padding: 0; }
   }
-  .footer-note { font-size: 13px; color: var(--text-light); text-align: center; margin-top: 40px; }
-  .footer-note a { color: var(--accent); text-decoration: none; }
+  .footer-note {
+    font-family: var(--label); font-size: 16px;
+    color: var(--ink-soft);
+    text-align: center; margin-top: 48px;
+    padding-top: 22px;
+    border-top: 1px solid var(--rule-strong);
+    letter-spacing: 0.04em;
+  }
+  .footer-note a { color: var(--rec); text-decoration: none; border-bottom: 1px solid var(--rec); }
+  .credit-line {
+    display: block;
+    font-family: var(--body); font-weight: 700;
+    font-size: 9px; letter-spacing: 0.42em;
+    color: var(--ink-faint);
+    margin-top: 14px;
+    text-transform: uppercase;
+    opacity: 0.65;
+  }
 
   .q-row { position: relative; }
   .q-tools {
@@ -175,8 +394,24 @@
 </head>
 <body>
 <main class="wrap">
+
+  <!-- THE CASSETTE DECK -->
+  <div class="console">
+    <div class="console-row">
+      <div class="reel" aria-hidden="true"></div>
+      <div>
+        <div class="console-title">Echo · oral history deck<span class="model">MODEL E-MMXXVI · SIDE A</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="rec-light" aria-hidden="true"></span>
+        <span class="timecode">REC · 00:00</span>
+        <div class="reel" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
   <p class="kicker">Capture a life before it's gone</p>
-  <h1 class="title">Echo.</h1>
+  <h1 class="title">Echo</h1>
   <p class="lead">
     Most lives don't get written down. A guided interview, asked patiently across a few sittings, becomes a Wikipedia-style document the family can hold forever. Bring this to someone old. Read the questions aloud. Type their answers. Print the result.
   </p>
@@ -232,7 +467,8 @@
   </div>
 
   <p class="footer-note">
-    Echo v0.2 · auto-saves to your browser as you type · a Purcell Ventures tool · for the lives that don't get written down on their own
+    Echo v0.2 · auto-saves locally · for the lives that don't get written down on their own
+    <span class="credit-line">— PURCELLVENTURES.CO —</span>
   </p>
 </main>
 
